@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Key Manager Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-4 font-sans">
+    <!-- Login Modal -->
+    <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-96 fade-in">
+            <h2 class="text-2xl font-bold mb-6 text-center">Admin Login</h2>
+            <input id="username" type="text" placeholder="Username" class="w-full p-3 bg-gray-700 rounded mb-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input id="password" type="password" placeholder="Password" class="w-full p-3 bg-gray-700 rounded mb-6 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded font-bold transition">Login</button>
+            <div id="loginError" class="text-red-400 mt-2 hidden">Sai tài khoản/mật khẩu!</div>
+        </div>
+    </div>
+
+    <!-- Dashboard (hidden initially) -->
+    <div id="dashboard" class="hidden fade-in">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold">Key Manager</h1>
+            <button onclick="logout()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded font-bold">Logout</button>
+        </div>
+
+        <!-- Controls -->
+        <div class="bg-gray-800 p-6 rounded-lg mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <label>Max Devices: <input id="maxDevices" type="number" value="1" min="1" max="999" class="bg-gray-700 p-2 rounded w-full text-white"></label>
+                <label>Days (0=∞): <input id="days" type="number" value="0" min="0" max="999" class="bg-gray-700 p-2 rounded w-full text-white"></label>
+                <button onclick="generateKey()" class="bg-green-600 hover:bg-green-700 p-3 rounded font-bold col-span-2 md:col-span-1">Generate Key (4 số)</button>
+                <button onclick="loadKeys()" class="bg-blue-600 hover:bg-blue-700 p-3 rounded font-bold">Refresh</button>
+            </div>
+            <div id="genResult" class="text-green-400 hidden font-bold"></div>
+        </div>
+
+        <!-- Keys Table -->
+        <div class="bg-gray-800 rounded-lg overflow-hidden">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-gray-700">
+                        <th class="p-4 text-left">ID</th>
+                        <th class="p-4 text-left">Key (4 số)</th>
+                        <th class="p-4 text-left">MaxDev</th>
+                        <th class="p-4 text-left">Used</th>
+                        <th class="p-4 text-left">Days</th>
+                        <th class="p-4 text-left">Status</th>
+                        <th class="p-4 text-left">Created</th>
+                        <th class="p-4 text-left">FirstUsed</th>
+                        <th class="p-4 text-left">Expire</th>
+                        <th class="p-4 text-left">HWID</th>
+                    </tr>
+                </thead>
+                <tbody id="keysTable">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('token');
+        const API_BASE = window.location.origin;  // Auto localhost or VPS
+
+        if (token) {
+            loadKeys();
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+        }
+
+        // Auto refresh every 5s
+        setInterval(loadKeys, 5000);
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            try {
+                const resp = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, password})
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    token = data.token;
+                    localStorage.setItem('token', token);
+                    document.getElementById('loginModal').classList.add('hidden');
+                    document.getElementById('dashboard').classList.remove('hidden');
+                    loadKeys();
+                } else {
+                    document.getElementById('loginError').classList.remove('hidden');
+                }
+            } catch (e) {
+                document.getElementById('loginError').innerHTML = 'Lỗi kết nối!';
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        }
+
+        async function loadKeys() {
+            if (!token) return;
+            try {
+                const resp = await fetch(`${API_BASE}/keys`, {
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                if (!resp.ok) {
+                    logout();
+                    return;
+                }
+                const data = await resp.json();
+                const tbody = document.getElementById('keysTable');
+                tbody.innerHTML = '';
+                data.keys.slice(0, 50).forEach(k => {  // Limit 50
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td class="p-4">${k.id}</td>
+                        <td class="p-4 font-mono font-bold text-lg">${k.key}</td>
+                        <td class="p-4">${k.max_devices}</td>
+                        <td class="p-4">${k.used}</td>
+                        <td class="p-4">${k.duration_days || '∞'}</td>
+                        <td class="p-4 ${k.status === 'active' ? 'text-green-400' : 'text-red-400'}">${k.status}</td>
+                        <td class="p-4">${k.created_by}</td>
+                        <td class="p-4">${k.first_used || '-'}</td>
+                        <td class="p-4">${k.expire_at ? new Date(k.expire_at).toLocaleString() : '∞'}</td>
+                        <td class="p-4 font-mono">${k.hwid || '-'}</td>
+                    `;
+                });
+            } catch (e) {
+                logout();
+            }
+        }
+
+        async function generateKey() {
+            if (!token) return;
+            const days = parseInt(document.getElementById('days').value) || 0;
+            const maxDev = parseInt(document.getElementById('maxDevices').value) || 1;
+            try {
+                const resp = await fetch(`${API_BASE}/generate_key`, {
+                    method: 'POST',
+                    headers: {'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'},
+                    body: JSON.stringify({duration_days: days, max_devices: maxDev})
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    document.getElementById('genResult').textContent = `✅ New key: ${data.key}`;
+                    document.getElementById('genResult').classList.remove('hidden');
+                    setTimeout(() => document.getElementById('genResult').classList.add('hidden'), 5000);
+                    loadKeys();
+                } else {
+                    alert('Generate failed: ' + data.message);
+                }
+            } catch (e) {
+                alert('Lỗi: ' + e.message);
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            token = null;
+            document.getElementById('loginModal').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+        }
+
+        // Enter key login
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && document.getElementById('loginModal').classList.contains('fixed')) {
+                login();
+            }
+        });
+    </script>
+</body>
+</html>
