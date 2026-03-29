@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Key Manager - GitHub Pages</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-4 font-sans">
+    <!-- Server URL Input -->
+    <div class="bg-blue-800 p-4 rounded-lg mb-4">
+        <label class="block mb-2">Backend Server URL (VPS): 
+            <input id="serverUrl" value="http://103.249.201.186:5000" class="bg-gray-700 p-2 rounded w-full text-white ml-2">
+        </label>
+        <small class="text-blue-200">Update VPS IP/port. Local: http://localhost:5000</small>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-96 fade-in">
+            <h2 class="text-2xl font-bold mb-6 text-center">Admin Login</h2>
+            <input id="username" type="text" placeholder="Username" class="w-full p-3 bg-gray-700 rounded mb-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input id="password" type="password" placeholder="Password" class="w-full p-3 bg-gray-700 rounded mb-6 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded font-bold transition">Login</button>
+            <div id="loginError" class="text-red-400 mt-2 hidden">Sai tài khoản/mật khẩu!</div>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="hidden fade-in">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold">Key Manager <span id="apiStatus" class="text-sm bg-green-600 px-2 py-1 rounded">(Connected)</span></h1>
+            <button onclick="logout()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded font-bold">Logout</button>
+        </div>
+
+        <!-- Controls -->
+        <div class="bg-gray-800 p-6 rounded-lg mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <label>Server URL: <input id="serverUrlDash" class="bg-gray-700 p-2 rounded w-full text-white" readonly></label>
+                <label>Max Devices: <input id="maxDevices" type="number" value="1" min="1" max="999" class="bg-gray-700 p-2 rounded w-full text-white"></label>
+                <label>Days (0=∞): <input id="days" type="number" value="0" min="0" max="999" class="bg-gray-700 p-2 rounded w-full text-white"></label>
+                <button onclick="generateKey()" class="bg-green-600 hover:bg-green-700 p-3 rounded font-bold col-span-1 md:col-span-1">Generate Key</button>
+                <button onclick="loadKeys()" class="bg-blue-600 hover:bg-blue-700 p-3 rounded font-bold">Refresh</button>
+            </div>
+            <div id="genResult" class="text-green-400 hidden font-bold"></div>
+            
+            <!-- API Examples -->
+            <div id="apiExamples" class="mt-6 p-4 bg-blue-900/50 rounded-lg hidden">
+                <h3 class="text-xl font-bold mb-4 text-blue-300">📋 API Commands (Copy)</h3>
+                <div id="curlLogin" class="mb-3"></div>
+                <div id="curlGenerate" class="mb-3"></div>
+                <div id="curlVerify" class="mb-3"></div>
+                <button onclick="copyAll()" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded text-sm">Copy All</button>
+            </div>
+        </div>
+
+        <!-- Keys Table -->
+        <div class="bg-gray-800 rounded-lg overflow-hidden">
+            <table class="w-full">
+                <thead>
+                    <tr class="bg-gray-700">
+                        <th class="p-4 text-left">ID</th>
+                        <th class="p-4 text-left">Key</th>
+                        <th class="p-4">MaxDev</th>
+                        <th class="p-4">Used</th>
+                        <th class="p-4">Days</th>
+                        <th class="p-4">Status</th>
+                        <th class="p-4">HWID</th>
+                        <th class="p-4">Expire</th>
+                    </tr>
+                </thead>
+                <tbody id="keysTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('token') || '';
+        let API_BASE = localStorage.getItem('api_base') || 'http://103.249.201.186:5000';
+
+        document.getElementById('serverUrl').value = API_BASE;
+        document.getElementById('serverUrlDash').value = API_BASE;
+
+        document.getElementById('serverUrl').addEventListener('change', (e) => {
+            API_BASE = e.target.value;
+            localStorage.setItem('api_base', API_BASE);
+            document.getElementById('serverUrlDash').value = API_BASE;
+            if (token) loadKeys();
+        });
+
+        if (token) {
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            loadKeys();
+        }
+
+        setInterval(loadKeys, 5000);
+
+        async function getApiBase() { return API_BASE; }
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const apiBase = getApiBase();
+            try {
+                const resp = await fetch(`${apiBase}/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, password})
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    token = data.token;
+                    localStorage.setItem('token', token);
+                    document.getElementById('loginModal').classList.add('hidden');
+                    document.getElementById('dashboard').classList.remove('hidden');
+                    loadKeys();
+                } else {
+                    document.getElementById('loginError').classList.remove('hidden');
+                }
+            } catch (e) {
+                document.getElementById('loginError').innerHTML = 'Lỗi server! Check URL.';
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        }
+
+        async function loadKeys() {
+            if (!token) return;
+            const apiBase = getApiBase();
+            try {
+                const resp = await fetch(`${apiBase}/keys`, {
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+                if (!resp.ok) {
+                    logout();
+                    return;
+                }
+                const data = await resp.json();
+                const tbody = document.getElementById('keysTable');
+                tbody.innerHTML = '';
+                data.keys.slice(0, 50).forEach(k => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td class="p-4">${k.id}</td>
+                        <td class="p-4 font-mono font-bold text-lg">${k.key}</td>
+                        <td class="p-4">${k.max_devices}</td>
+                        <td class="p-4">${k.used}</td>
+                        <td class="p-4">${k.duration_days || '∞'}</td>
+                        <td class="p-4 ${k.status === 'active' ? 'text-green-400' : 'text-red-400'}">${k.status}</td>
+                        <td class="p-4 font-mono">${k.hwid || '-'}</td>
+                        <td class="p-4">${k.expire_at ? new Date(k.expire_at).toLocaleString() : '∞'}</td>
+                    `;
+                });
+                document.getElementById('apiStatus').textContent = `(Connected: ${data.keys.length} keys)`;
+            } catch (e) {
+                document.getElementById('apiStatus').textContent = '(Disconnected)';
+                logout();
+            }
+        }
+
+        async function generateKey() {
+            if (!token) return;
+            const days = parseInt(document.getElementById('days').value) || 0;
+            const maxDev = parseInt(document.getElementById('maxDevices').value) || 1;
+            const apiBase = getApiBase();
+            try {
+                const resp = await fetch(`${apiBase}/generate_key`, {
+                    method: 'POST',
+                    headers: {'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'},
+                    body: JSON.stringify({duration_days: days, max_devices: maxDev})
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    document.getElementById('genResult').innerHTML = `✅ New key: <strong>${data.key}</strong> (${days} days, ${maxDev} devices)`;
+                    document.getElementById('genResult').classList.remove('hidden');
+                    updateApiExamples(data.key, days, maxDev);
+                    setTimeout(() => document.getElementById('genResult').classList.add('hidden'), 8000);
+                    loadKeys();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (e) {
+                alert('Server error: ' + e.message);
+            }
+        }
+
+        function updateApiExamples(key, days, maxDev) {
+            const apiBase = getApiBase();
+            document.getElementById('curlLogin').innerHTML = `<pre class="bg-gray-800 p-3 rounded text-xs font-mono">curl -X POST ${apiBase}/login -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}'</pre>`;
+            document.getElementById('curlGenerate').innerHTML = `<pre class="bg-gray-800 p-3 rounded text-xs font-mono">curl -X POST ${apiBase}/generate_key -H "Authorization: Bearer TOKEN" -d '{"duration_days":${days},"max_devices":${maxDev}}'</pre>`;
+            document.getElementById('curlVerify').innerHTML = `<pre class="bg-gray-800 p-3 rounded text-xs font-mono">curl "${apiBase}/verify?key=${key}&hwid=YOUR_HWID"</pre>`;
+            document.getElementById('apiExamples').classList.remove('hidden');
+        }
+
+        function copyAll() {
+            const apiBase = getApiBase();
+            const text = `Login: curl -X POST ${apiBase}/login -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}'
+Generate: curl -X POST ${apiBase}/generate_key -H "Authorization: Bearer TOKEN" -H "Content-Type: application/json" -d '{"duration_days":30,"max_devices":1}'
+Verify: curl "${apiBase}/verify?key=XXXX&hwid=ABC123"`;
+            navigator.clipboard.writeText(text).then(() => alert('Copied all API commands!'));
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            token = '';
+            document.getElementById('loginModal').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('apiExamples').classList.add('hidden');
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !document.getElementById('dashboard').classList.contains('hidden')) {
+                generateKey();
+            }
+        });
+    </script>
+</body>
+</html>
