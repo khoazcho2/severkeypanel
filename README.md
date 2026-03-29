@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Key Manager Server
 
 ## Quick Start
@@ -17,3 +18,4 @@
 `index.html` live demo (frontend only)
 
 **Test:** python test_api.py
+

@@ -1,4 +1,11 @@
+<<<<<<< HEAD
 {
   "active_keys": [],
   "message": "Run server and generate keys via http://localhost:5000/admin (admin/admin123) or http://103.249.201.186:5000/admin to populate. Keys stored in serverkey.db (SQLite), not JSON. Use /keys API endpoint for active keys list."
 }
+=======
+{
+  "active_keys": [],
+  "message": "Run server and generate keys via http://localhost:5000/admin (admin/admin123) or http://103.249.201.186:5000/admin to populate. Keys stored in serverkey.db (SQLite), not JSON. Use /keys API endpoint for active keys list."
+}
+
