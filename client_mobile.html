@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Key Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-b from-indigo-900 via-purple-900 to-pink-900 min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20">
+        <div class="text-center mb-8">
+            <div class="w-24 h-24 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
+                <span class="text-3xl font-bold">🔑</span>
+            </div>
+            <h1 class="text-3xl font-bold mb-2 bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">Key Login</h1>
+            <p class="opacity-75">Nhập key 4 số từ server</p>
+        </div>
+
+        <div class="space-y-6">
+            <div>
+                <label class="block text-sm font-bold mb-2 opacity-90">Key (4 số)</label>
+                <input id="key" type="text" maxlength="4" class="w-full p-4 text-2xl font-bold text-center rounded-2xl bg-white/20 border-2 border-white/30 focus:border-blue-400 focus:outline-none text-yellow-400 uppercase" placeholder="1234">
+            </div>
+
+            <button onclick="verifyKey()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 p-4 rounded-2xl font-bold text-lg shadow-xl transform hover:scale-[1.02] transition-all duration-200">✅ Xác Thực Key</button>
+
+            <div id="result" class="hidden p-6 rounded-2xl font-bold text-lg text-center shadow-lg">
+                <div id="statusIcon" class="text-4xl mb-3"></div>
+                <div id="statusText" class="mb-2"></div>
+                <div id="statusDetail" class="opacity-75 text-sm"></div>
+            </div>
+        </div>
+
+        <div class="mt-8 pt-6 border-t border-white/10 text-xs opacity-60 text-center">
+            Server: http://103.249.201.186:5000
+        </div>
+    </div>
+
+    <script>
+        const SERVER_URL = 'http://103.249.201.186:5000/verify';  // VPS server
+
+        // Simple HWID (browser fingerprint)
+        function getHWID() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.font = '20px Arial';
+            ctx.fillText(navigator.userAgent, 4, 20);
+            return btoa(canvas.toDataURL()).slice(-16);
+        }
+
+        async function verifyKey() {
+            const key = document.getElementById('key').value.trim().toUpperCase();
+            if (!key || key.length !== 4 || !/^\d{4}$/.test(key)) {
+                alert('Key phải 4 chữ số!');
+                return;
+            }
+
+            const hwid = getHWID();
+            const resultDiv = document.getElementById('result');
+            const iconEl = document.getElementById('statusIcon');
+            const textEl = document.getElementById('statusText');
+            const detailEl = document.getElementById('statusDetail');
+
+            // Show loading
+            resultDiv.classList.remove('hidden');
+            iconEl.innerHTML = '⏳';
+            textEl.textContent = 'Đang kiểm tra...';
+            detailEl.textContent = '';
+
+            try {
+                const url = `${SERVER_URL}?key=${key}&hwid=${hwid}`;
+                const resp = await fetch(url);
+                const data = await resp.json();
+
+                // Update UI
+                if (data.status === 'success') {
+                    iconEl.innerHTML = '✅';
+                    textEl.textContent = 'Key HỢP LỆ';
+                    detailEl.innerHTML = `⏱️ Còn <strong>${data.remaining_hours || '∞'} giờ</strong>`;
+                    resultDiv.classList.add('bg-green-500/20', 'border-green-400/50');
+                    document.body.style.background = 'linear-gradient(to b, #059669, #047857)';
+                } else if (data.status === 'activated') {
+                    iconEl.innerHTML = '🔓';
+                    textEl.textContent = 'KÍCH HOẠT THÀNH CÔNG';
+                    detailEl.textContent = 'Key sẵn sàng sử dụng';
+                    resultDiv.classList.add('bg-emerald-500/20', 'border-emerald-400/50');
+                } else if (data.status === 'expired') {
+                    iconEl.innerHTML = '⏰';
+                    textEl.textContent = 'KEY HẾT HẠN';
+                    detailEl.textContent = 'Liên hệ admin gia hạn';
+                    resultDiv.classList.add('bg-orange-500/20', 'border-orange-400/50');
+                } else if (data.status === 'invalid') {
+                    iconEl.innerHTML = '❌';
+                    textEl.textContent = 'KEY SAI';
+                    detailEl.textContent = 'Key không tồn tại';
+                    resultDiv.classList.add('bg-red-500/20', 'border-red-400/50');
+                } else if (data.status === 'invalid_device') {
+                    iconEl.innerHTML = '🔒';
+                    textEl.textContent = 'BIND MÁY KHÁC';
+                    detailEl.textContent = 'Key chỉ dùng 1 thiết bị';
+                    resultDiv.classList.add('bg-yellow-500/20', 'border-yellow-400/50');
+                } else {
+                    iconEl.innerHTML = '⚠️';
+                    textEl.textContent = 'LỖI';
+                    detailEl.textContent = data.message || 'Kiểm tra kết nối';
+                    resultDiv.classList.add('bg-gray-500/20', 'border-gray-400/50');
+                }
+            } catch (e) {
+                iconEl.innerHTML = '🌐';
+                textEl.textContent = 'LỖI MẠNG';
+                detailEl.textContent = 'Không kết nối VPS';
+                resultDiv.classList.add('bg-red-500/20', 'border-red-400/50');
+            }
+        }
+
+        // Enter to check
+        document.getElementById('key').addEventListener('keypress', e => {
+            if (e.key === 'Enter') verifyKey();
+        });
+
+        // Auto focus
+        document.getElementById('key').focus();
+    </script>
+</body>
+</html>

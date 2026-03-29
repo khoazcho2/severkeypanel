@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv*/
+.venv*/
+env.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.dmypy.json
+dmypy.json
+pyright/
+report.html
+htmlcov/
+.vscode/
+.idea/
+
+# DB
+serverkey.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Builds
+*.exe
+*.dll
+build/
+dist/

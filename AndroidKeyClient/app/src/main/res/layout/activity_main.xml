@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="#1E1B4B"
+    android:gravity="center_horizontal">
+
+    <ImageView
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:src="@android:drawable/ic_lock_idle_lock"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Key Client"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/white"
+        android:layout_marginBottom="32dp" />
+
+    <EditText
+        android:id="@+id/keyInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Nhập key 4 số"
+        android:inputType="number"
+        android:maxLength="4"
+        android:textSize="24sp"
+        android:gravity="center"
+        android:background="@drawable/edit_background"
+        android:padding="16dp"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:id="@+id/hwidView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="HWID: loading..."
+        android:textColor="#A1A1AA"
+        android:layout_marginBottom="24dp" />
+
+    <Button
+        android:id="@+id/checkBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="KIỂM TRA KEY"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:backgroundTint="#10B981"
+        android:layout_marginBottom="32dp" />
+
+    <TextView
+        android:id="@+id/statusView"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:background="#374151"
+        android:gravity="center"
+        android:text="Nhập key để kiểm tra"
+        android:textSize="16sp"
+        android:padding="16dp"
+        android:elevation="4dp" />
+
+</LinearLayout>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Key Checker Mobile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-900 to-purple-900 min-h-screen p-6 text-white">
+    <div class="max-w-md mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-8">🔑 Key Checker</h1>
+        
+        <div id="status" class="text-center mb-6 p-4 rounded-xl bg-white/10">
+            <div class="text-4xl mb-2" id="statusIcon">⏳</div>
+            <div class="text-xl font-bold" id="statusText">Nhập key</div>
+            <div class="text-sm opacity-75 mt-1" id="statusDetail"></div>
+            <div class="text-lg font-mono mt-2 bg-black/30 p-2 rounded" id="hwid"></div>
+        </div>
+
+        <div class="space-y-4 mb-8">
+            <input id="keyInput" type="text" placeholder="Nhập key 4 số" maxlength="4" class="w-full p-4 text-xl font-bold text-center rounded-xl bg-white/10 border-2 border-white/20 focus:border-blue-400 focus:outline-none text-yellow-300">
+            <button onclick="checkKey()" class="w-full bg-green-600 hover:bg-green-700 p-4 rounded-xl font-bold text-lg shadow-lg">Kiểm Tra Key</button>
+        </div>
+
+        <div class="bg-white/5 p-4 rounded-xl">
+            <h3 class="font-bold mb-2">Gợi ý key test:</h3>
+            <div class="space-y-1 text-sm opacity-75">Tạo từ admin panel</div>
+        </div>
+
+        <button onclick="location.reload()" class="w-full mt-8 bg-gray-700 hover:bg-gray-600 p-3 rounded-xl font-bold text-sm">Reload</button>
+    </div>
+
+    <script>
+        const API_URL = 'http://103.249.201.186:5000/verify';  // VPS
+        let hwid = 'loading...';
+
+        // Get HWID (simple browser fingerprint)
+        async function getHWID() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillText('Key system fingerprint', 2, 2);
+            const fingerprint = canvas.toDataURL();
+            hwid = btoa(fingerprint).slice(0, 16);  // Short HWID
+            document.getElementById('hwid').textContent = hwid;
+        }
+
+        async function checkKey() {
+            const key = document.getElementById('keyInput').value.trim();
+            if (!key) return;
+
+            const icon = document.getElementById('statusIcon');
+            const text = document.getElementById('statusText');
+            const detail = document.getElementById('statusDetail');
+            
+            icon.textContent = '⏳';
+            text.textContent = 'Đang kiểm tra...';
+            detail.textContent = '';
+
+            try {
+                const resp = await fetch(`${API_URL}?key=${key}&hwid=${hwid}`);
+                const data = await resp.json();
+
+                if (data.status === 'success') {
+                    icon.textContent = '✅';
+                    text.textContent = 'Key Hợp Lệ';
+                    detail.innerHTML = `Thời gian còn: <strong>${data.remaining_hours} giờ</strong>`;
+                    document.body.style.background = 'linear-gradient(to br, #10b981, #059669)';
+                } else if (data.status === 'expired') {
+                    icon.textContent = '❌';
+                    text.textContent = 'Key Hết Hạn';
+                    detail.textContent = 'Liên hệ admin gia hạn';
+                    document.body.style.background = 'linear-gradient(to br, #ef4444, #dc2626)';
+                } else if (data.status === 'invalid') {
+                    icon.textContent = '❌';
+                    text.textContent = 'Key Sai';
+                    detail.textContent = 'Key không tồn tại';
+                    document.body.style.background = 'linear-gradient(to br, #ef4444, #dc2626)';
+                } else if (data.status === 'invalid_device') {
+                    icon.textContent = '⚠️';
+                    text.textContent = 'Máy Khác';
+                    detail.textContent = 'Key bind máy khác';
+                } else if (data.status === 'activated') {
+                    icon.textContent = '✅';
+                    text.textContent = 'Kích Hoạt OK';
+                    detail.textContent = 'Key sẵn sàng dùng';
+                } else {
+                    icon.textContent = '❌';
+                    text.textContent = 'Lỗi';
+                    detail.textContent = data.message || 'Kết nối fail';
+                }
+            } catch (e) {
+                icon.textContent = '❌';
+                text.textContent = 'Lỗi Mạng';
+                detail.textContent = 'Check VPS 103.249.201.186:5000';
+            }
+        }
+
+        // Enter check
+        document.getElementById('keyInput').addEventListener('keypress', e => {
+            if (e.key === 'Enter') checkKey();
+        });
+
+        getHWID();
+    </script>
+</body>
+</html>
